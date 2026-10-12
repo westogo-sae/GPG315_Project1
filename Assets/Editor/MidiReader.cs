@@ -51,7 +51,7 @@ namespace Westhouse.WMidiTools
 
 	        // number of Tracks 10 -> 11
 	        int numTracks = ReadAsInt16(data, 10);
-	        midiFile.midiTracks = new MidiRaw.Track[numTracks];
+	        midiFile.midiTracks = new MidiRaw.EventTrack[numTracks];
 
 	        //Time Divisions 12 -> 13
 	        int timeDiv = ReadAsInt16(data, 12);
