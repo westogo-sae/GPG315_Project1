@@ -9,19 +9,39 @@ namespace Westhouse.WMidiTools
 		public int timeSignatureDenom = 4;
 		public int timeSignature {get {return timeSignatureNum / timeSignatureDenom;}}
 
-		MetaTrack metaTrack;
-		NoteTrack[] noteTracks;
+		public MetaTrack metaTrack {get; private set;}
+		public NoteTrack[] noteTracks {get; private set;}
+
+		public void SetTracks(MetaTrack meta, NoteTrack[] notes)
+		{
+			metaTrack = meta;
+			noteTracks = notes;
+		}
 
 	}
 
 	public class MidiEvent
 	{
+		/// floating point note time in quarter notes
 		public float startTime;
+
+		// possible delagate setup with injection
+		// protected MidiObject midiObject;
+
+		// public void InjectMO(MidiObject MO)
+		// {
+		// 	midiObject = MO;
+		// }
 	}
 
 	public class MetaTrack
 	{
 		public MetaEvent[] events;
+
+		public MetaTrack(MetaEvent[] metaEvents)
+		{
+			events = metaEvents;
+		}
 	}
 
 	public class MetaEvent : MidiEvent
@@ -33,19 +53,34 @@ namespace Westhouse.WMidiTools
 	public class NoteTrack
 	{
 		public NoteEvent[] events;
+
+		public NoteTrack(NoteEvent[] noteEvents)
+		{
+			events = noteEvents;
+		}
 	}
 
 	public class NoteEvent : MidiEvent
 	{
-		public float length;
-		public float endTime {get {return startTime + length;}}
+		public int channel;
+		/// velocity of note from 0 to 1
+		public float velocity;
+		public float endTime;
+		public float length {get {return endTime - startTime;}}
 	}
 
-
+	public class PitchWheelEvent : MidiEvent
+	{
+		//pitch variation from -1 to 1
+		public float pitchVariation;
+	}
 
 
 	namespace MidiRaw
 	{
+		//////////////////////////////
+		////////// Generic //////////
+		//////////////////////////////
 
 		public class SMF : ScriptableObject
 		{
@@ -71,19 +106,82 @@ namespace Westhouse.WMidiTools
 			public int deltaTime;
 		}
 
+		//////////////////////////////
+		//////// Meta Events//////////
+		//////////////////////////////
+
 		[System.Serializable]
 		public class MetaEvent : Event
 		{
-			MetaEventType type;
-			byte[] data;
+			public MetaEventType type;
+			public byte[] rawData;
 
-			public MetaEvent(MetaEventType metaType, byte[] metaData)
+			protected MetaEvent(MetaEventType metaType, byte[] metaData)
 			{
 				type = metaType;
-				data = metaData;
+				rawData = metaData;
+			}
+
+			public static MetaEvent Construct(MetaEventType metaType, byte[] metaData)
+			{
+				MetaEvent metaEvent = null;
+				switch(metaType)
+				{
+					case MetaEventType.SET_TEMPO:
+
+						metaEvent = new SetTempoEvent(metaType, metaData);
+						break;
+					case MetaEventType.TIME_SIGNATURE:
+
+						metaEvent = new SetTimeSignatureEvent(metaType, metaData);
+						break;
+					default:
+						//raw meta event
+						metaEvent = new MetaEvent(metaType, metaData);
+						break;
+				}
+
+				if(metaEvent != null)
+				{
+					metaEvent.type = metaType;
+					metaEvent.rawData = metaData;
+				}
+				return metaEvent;
 			}
 		}
 
+        public class SetTempoEvent : MetaEvent
+        {
+        	///microseconds per quarternote
+        	private int tempo;
+
+            public SetTempoEvent(MetaEventType metaType, byte[] metaData) : base(metaType, metaData)
+            {
+            	tempo = metaData[0] << 16 |
+            			metaData[1] << 8  |
+            			metaData[2];
+            }
+        }
+			
+		public class SetTimeSignatureEvent : MetaEvent
+		{
+			public int numerator;
+			public int denominatorPow;
+			public int clocksPerClick;
+			public int QuartSpec;
+
+			public SetTimeSignatureEvent(MetaEventType metaType, byte[] metaData) : base(metaType, metaData)
+            {
+            	numerator = metaData[0];
+            	denominatorPow = metaData[1];
+            	clocksPerClick = metaData[2];
+            	QuartSpec = metaData[3];
+            }
+		}
+
+		//////////////////////////////
+		//////// Sysex Events/////////
+		//////////////////////////////
 
 		[System.Serializable]
 		public class SysexEvent : Event
@@ -96,11 +194,15 @@ namespace Westhouse.WMidiTools
 			}
 		}
 
+		//////////////////////////////
+		//////// Midi Events//////////
+		//////////////////////////////
 
 		[System.Serializable]
 		public abstract class MidiEvent : Event
 		{
 			public int channel;
+			public MidiType type;
 
 			// static Midi Factory
 			public static MidiEvent Construct(MidiStatus status, byte[] data)
@@ -140,6 +242,7 @@ namespace Westhouse.WMidiTools
 				if(mEvent != null)
 				{
 					mEvent.channel = status.channel;
+					mEvent.type = status.type;
 				}
 
 				return mEvent;

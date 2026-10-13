@@ -15,7 +15,7 @@ namespace Westhouse.WMidiTools
 	    public static SMF ReadMidiFile(string filePath)
 	    {
 	        
-	    	SMF midiFile = ScriptableObject.CreateInstance<SMF>();
+	    	SMF midiFile = new SMF();
 
 	    	var data = File.ReadAllBytes(filePath);
 
@@ -55,6 +55,11 @@ namespace Westhouse.WMidiTools
 
 	        //Time Divisions 12 -> 13
 	        int timeDiv = ReadAsInt16(data, 12);
+	        if((timeDiv & 0x80) != 0) // Midi is using SMPTE format
+	        {
+	        	Debug.LogError("Midi Importer currently does not support SMPTE time format");
+	        	return null;
+	        }
 	        midiFile.timeDiv = timeDiv;
 
 	        //first track chunk starts at bit 14)
@@ -210,7 +215,7 @@ namespace Westhouse.WMidiTools
 
 	    ///// Evaluate Event types
 
-	    static MidiEvent ParseMidiEvent(byte[] data, int start, out int midiSize)
+	    static MidiRaw.MidiEvent ParseMidiEvent(byte[] data, int start, out int midiSize)
 	    {
 	        int runningOffset = 0;
 	        if((data[start] & 128) == 128) // if starting bit is set
@@ -230,11 +235,11 @@ namespace Westhouse.WMidiTools
 
 	        Array.Copy(data, start + runningOffset, midiData, 0, midiData.Length);
 
-	        return MidiEvent.Construct(midiRunnningStatus, midiData);
+	        return MidiRaw.MidiEvent.Construct(midiRunnningStatus, midiData);
 
 	    }
 
-	    static MetaEvent ParseMetaEvent(byte[] data, int start, out int eventSize)
+	    static MidiRaw.MetaEvent ParseMetaEvent(byte[] data, int start, out int eventSize)
 	    {  
 	        // FF : 0
 	        // type : 1
@@ -252,10 +257,10 @@ namespace Westhouse.WMidiTools
 
 	        eventSize = 2 + lenByteSize + length;
 
-	        return new MetaEvent(metaType, metaData);
+	        return MidiRaw.MetaEvent.Construct(metaType, metaData);
 	    }
 
-	    static SysexEvent ParseSysexEvent(byte[] data, int start, out int eventSize)
+	    static MidiRaw.SysexEvent ParseSysexEvent(byte[] data, int start, out int eventSize)
 	    {
 	        // F7/F0 : 0
 	        // length : 1
