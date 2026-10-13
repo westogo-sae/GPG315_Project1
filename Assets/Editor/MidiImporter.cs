@@ -3,7 +3,6 @@ using UnityEditor.AssetImporters;
 
 namespace Westhouse.WMidiTools
 {
-    using MidiRaw;
 
     [ScriptedImporter(1, "mid")]
     public class MidiImporter : ScriptedImporter
@@ -11,12 +10,16 @@ namespace Westhouse.WMidiTools
         public override void OnImportAsset(AssetImportContext ctx)
         {
 
-            SMF rawMidi = MidiReader.ReadMidiFile(ctx.assetPath);
-            rawMidi = MidiReader.ReadMidiFile(ctx.assetPath);
+            MidiObject midiObject = ScriptableObject.CreateInstance<MidiObject>();
 
-            ctx.AddObjectToAsset("Midi", rawMidi);
+             if(MidiReader.ReadMidiFileToObj(ctx.assetPath, ref midiObject))
+             {
+
+                ctx.AddObjectToAsset("Midi", midiObject);
+                Debug.LogWarning("Imported Midi File: " + ctx.assetPath.Split("/")[^1]);      
+             }
+
             
-            Debug.LogWarning("Imported Midi File: " + ctx.assetPath.Split("/")[^1]);      
         }
 
     }
