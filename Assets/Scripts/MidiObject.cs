@@ -4,7 +4,6 @@ using UnityEngine;
 namespace Westhouse.WMidiTools
 {
 
-
 	//////////////////////////////
 	////////// Generic //////////
 	//////////////////////////////
@@ -18,15 +17,16 @@ namespace Westhouse.WMidiTools
 
 		/////runtime vars (can vary over playback)
 
-		///<summary>>seconds per beat</summary>
-		public float tempo = 0.5f; //120 bpm
+		///<summary>>beats per second</summary>
+		public float tempo = 2f; //120 bpm
 		public int timeSignatureNum = 4;
 		public int timeSignatureDenom = 4;
 		public int timeSignature {get {return timeSignatureNum / timeSignatureDenom;}}
 		///<summary> state of pitch wheel from -1 to 1 </summary>
 		public float pitchVariation = 0;
 
-		public Track[] tracks;
+		[SerializeReference]
+		public MOTrack[] tracks;
 
 
 		///<summary> Invoked when a note on event was called</summary>
@@ -34,23 +34,42 @@ namespace Westhouse.WMidiTools
 		///<summary> Invoked when a note off event was called</summary>
 		public Action<NoteEvent> OnNoteEventCancelled;
 
+		private void OnEnable()
+		{	
+			if(tracks == null) return;
+			//Inject into events
+			foreach(MOTrack track in tracks)
+			{
+				foreach(MOEvent ev in track.events)
+				{
+					ev.InjectMidiObject(this);
+				}
+			}	
+		}	
+
 	}
 
-	[System.Serializable]
-	public class Track
-	{
-		public Event[] events;
 
-		public Track(Event[] trackEvents)
+
+	[System.Serializable]
+	public class MOTrack
+	{
+		[SerializeReference]
+		public MOEvent[] events;
+
+		public MOTrack(MOEvent[] trackEvents)
 		{
 			events = trackEvents;
+			Debug.Log(events);
 		}
 	}
 
-	public abstract class Event
+	[System.Serializable]
+	public  class MOEvent
 	{
 		/// the time of the event in quarter notes
-		public float time {get; private set;}
+		public float time;
+		[SerializeReference]
 		protected MidiObject midiParent;
 
 		public void InjectMidiObject(MidiObject MO)
@@ -63,14 +82,19 @@ namespace Westhouse.WMidiTools
 			time = (float)divTime / divsPerQuart;
 		}
 
-		public abstract void Call();
+		public virtual void Call()
+		{
+			Debug.LogWarning("Empty Midi Object Events Should not be called!!");
+		}
 	}
 
 	//////////////////////////////
 	//////// Meta Events//////////
 	//////////////////////////////
 
-	public class MetaEvent : Event
+
+	[System.Serializable]
+	public class MetaEvent : MOEvent
 	{
 		public MetaEventType type;
 		public byte[] rawData;
@@ -116,11 +140,17 @@ namespace Westhouse.WMidiTools
 
 		public override void Call()
 		{
-			Debug.Log("Unrecognised Meta Event triggered");
+			Debug.LogWarning("Unrecognised Meta Event triggered");
 		}
+
+		public override string ToString()
+        {
+            return $"Meta Event | time: {time} | type: {Enum.GetName(typeof(MetaEventType), type)}";
+        }
 	}
 
 
+	[System.Serializable]
     public class TextEvent : MetaEvent
     {
     	public string text;
@@ -137,9 +167,12 @@ namespace Westhouse.WMidiTools
 		}
     }
 
+
+	[System.Serializable]
     public class SetTempoEvent : MetaEvent
     {
     	///microseconds per quarternote
+    	[SerializeReference]
     	private int tempo;
 
         public SetTempoEvent(MetaEventType metaType, byte[] metaData) : base(metaType, metaData)
@@ -151,10 +184,12 @@ namespace Westhouse.WMidiTools
 
         public override void Call()
         {
-        	midiParent.tempo = tempo * 1000f; // convert from micro seconds to secondsf
+        	midiParent.tempo = 1000000f / tempo; // convert from microseconds per beat to beats per second
         }
     }
-		
+	
+
+	[System.Serializable]
 	public class SetTimeSignatureEvent : MetaEvent
 	{
 		public int numerator;
@@ -182,7 +217,9 @@ namespace Westhouse.WMidiTools
 	//////// Sysex Events/////////
 	//////////////////////////////
 
-	public class SysexEvent : Event
+
+	[System.Serializable]
+	public class SysexEvent : MOEvent
 	{
 		byte[] data;
 
@@ -200,7 +237,9 @@ namespace Westhouse.WMidiTools
 	//////// Midi Events//////////
 	//////////////////////////////
 
-	public abstract class MidiEvent : Event
+
+	[System.Serializable]
+	public class MidiEvent : MOEvent
 	{
 		public int channel;
 		public MidiType type;
@@ -246,32 +285,40 @@ namespace Westhouse.WMidiTools
 				mEvent.type = status.type;
 			}
 
+	        
 			return mEvent;
 		}
+
+        public override string ToString()
+        {
+            return $"Midi Event | time: {time} | type: {Enum.GetName(typeof(MidiType), type)}";
+        }
 	}
 
+	[System.Serializable]
 	public class NoteEvent : MidiEvent
 	{
 		public bool noteOn;
 
 		public int note;
-		public int velocity;
+		public float velocity;
 
 		public NoteEvent(bool NoteOn, byte[] data)
 		{
 			noteOn = NoteOn;
 
 			note  = data[0]; // No need to remove highest bit, should be 0
-			velocity = data[1]; 
+			velocity = (data[1] / 127f);  //convert to float 0 - 1
 		}
 
         public override void Call()
         {
-            if(noteOn) midiParent.OnNoteEventCalled(this);
-            else midiParent.OnNoteEventCancelled(this);
+            if(noteOn) midiParent.OnNoteEventCalled?.Invoke(this);
+            else midiParent.OnNoteEventCancelled?.Invoke(this);
         }
     }
 
+	[System.Serializable]
 	public class PolyATEvent : MidiEvent
 	{
 		public int note;
@@ -290,6 +337,7 @@ namespace Westhouse.WMidiTools
         }
     }
 
+	[System.Serializable]
 	public class CtrlChangeEvent : MidiEvent
 	{
 		public int controller;
@@ -308,6 +356,7 @@ namespace Westhouse.WMidiTools
         }
     }
 
+	[System.Serializable]
 	public class ProgChangeEvent : MidiEvent
 	{
 		public int program;
@@ -319,10 +368,11 @@ namespace Westhouse.WMidiTools
 
         public override void Call()
         {
-            throw new System.NotImplementedException();
+            Debug.LogWarning("Program Change is currently unsupported");
         }
     }
 
+	[System.Serializable]
 	public class ChannelATEvent : MidiEvent
 	{
 		public int pressure;
@@ -338,6 +388,7 @@ namespace Westhouse.WMidiTools
         }
     }
 
+	[System.Serializable]
 	public class PitchWheelEvent : MidiEvent
 	{
 		public int pitch;
@@ -355,6 +406,7 @@ namespace Westhouse.WMidiTools
         }
     }
 
+	[System.Serializable]
 	public class MidiStatus
     {
         public MidiType type;
@@ -403,3 +455,4 @@ namespace Westhouse.WMidiTools
 	}	    
 
 }
+// crunchy nut.

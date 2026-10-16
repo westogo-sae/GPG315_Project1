@@ -41,15 +41,15 @@ namespace Westhouse.WMidiTools
 	        int format = ByteReader.ReadAsInt16(data, 8);
 	        midiObj.format = format;
 
-	        if(format != 1)
-	        {
-	        	Debug.LogError("Midi Importer Currently only supprts midi type 1");
-	        	return false;
-	        }
+	        // if(format == 2)
+	        // {
+	        // 	Debug.LogError("Midi Importer Currently only supprts midi type 1");
+	        // 	return false;
+	        // }
 
 	        // number of Tracks 10 -> 11
 	        int numTracks = ByteReader.ReadAsInt16(data, 10);
-	        midiObj.tracks = new Track[numTracks];
+	        midiObj.tracks = new MOTrack[numTracks];
 
 	        //Time Divisions 12 -> 13
 	        int timeDiv = ByteReader.ReadAsInt16(data, 12);
@@ -83,14 +83,14 @@ namespace Westhouse.WMidiTools
 	            int trkChunkEnd = byteOffset + trkChunkLength;
 
 
-	            List<Event> trackEvents = new();
+	            List<MOEvent> trackEvents = new();
 
 	            long runningTime = 0;
 
 	            while(byteOffset < trkChunkEnd)
 	            {
 
-	            	Event newEvent = null;
+	            	MOEvent newEvent = null;
 
 	                int eventTime = ByteReader.ReadVarInt(data, byteOffset, out int timeBytesLength);
 	                byteOffset += timeBytesLength;
@@ -114,6 +114,7 @@ namespace Westhouse.WMidiTools
 	                {
 	                    newEvent = ParseMidiEvent(data, byteOffset, out int midiSize);
 	                    byteOffset += midiSize; // midi event size
+
 	                }
 
 
@@ -123,14 +124,14 @@ namespace Westhouse.WMidiTools
 	                	runningTime += eventTime;
 
 	                	newEvent.SetTimeFromRaw(runningTime, midiObj.timeDiv);
-	                	newEvent.InjectMidiObject(midiObj);
+	                	// newEvent.InjectMidiObject(midiObj);
 	                }
 
 	                trackEvents.Add(newEvent);
 	            }
 
 	            //set midi file track events
-	            midiObj.tracks[i] = new Track(trackEvents.ToArray());
+	            midiObj.tracks[i] = new MOTrack(trackEvents.ToArray());
 
 	            //start of next track
 	            trkOffset = trkChunkEnd; 

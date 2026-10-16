@@ -14,10 +14,11 @@ namespace Westhouse.WMidiTools
 
              if(MidiReader.ReadMidiFileToObj(ctx.assetPath, ref midiObject))
              {
+
                 Texture2D icon = Resources.Load<Texture2D>("MidiIcon");
-                Debug.Log(icon);
                 ctx.AddObjectToAsset("Midi", midiObject, icon);
-                Debug.Log("Imported Midi File: " + ctx.assetPath.Split("/")[^1]);      
+                ctx.SetMainObject(midiObject);
+                Debug.Log("Imported Midi File: " + ctx.assetPath.Split("/")[^1]);
              }
 
             
