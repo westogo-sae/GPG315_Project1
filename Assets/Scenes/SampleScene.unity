@@ -240,7 +240,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e8f81ffff35973f3db7e51c8c7400ca8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  midi: {fileID: -4792764290756191694, guid: d794d3dcf0e8cc99ea4f3db00d42d52f, type: 3}
+  midi: {fileID: -4792764290756191694, guid: 9e8678ae0bd5b05cdaac599f6e715221, type: 3}
   playOnAwake: 1
   noteClip: {fileID: 8300000, guid: 6e13d260e846de9ad94578ef49437efc, type: 3}
   transposeClip: 0
