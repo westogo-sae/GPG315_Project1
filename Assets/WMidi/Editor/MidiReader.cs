@@ -17,7 +17,7 @@ namespace Westhouse.WMidiTools
 
 	    	var data = File.ReadAllBytes(filePath);
 
-	    	if(data.Length < 4)
+	    	if(data.Length < 4) 
 	    	{
 	    		Debug.LogError("Error, File is Empty");
 	    		return false;
@@ -52,13 +52,12 @@ namespace Westhouse.WMidiTools
 	        midiObj.tracks = new MOTrack[numTracks];
 
 	        //Time Divisions 12 -> 13
-	        int timeDiv = ByteReader.ReadAsInt16(data, 12);
-	        if((timeDiv & 0x80) != 0) // Midi is using SMPTE format
+	        if((data[12] & 0x8) != 0) // Midi is using SMPTE format
 	        {
 	        	Debug.LogError("Midi Importer currently does not support SMPTE time format");
 	        	return false;
-	        }
-	        midiObj.timeDiv = timeDiv;
+	        }else
+	        	midiObj.timeDiv = ByteReader.ReadAsInt16(data, 12);
 
 	        //first track chunk starts at bit 14)
 

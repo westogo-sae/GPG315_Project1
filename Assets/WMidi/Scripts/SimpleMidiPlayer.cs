@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
@@ -11,18 +12,24 @@ public class SimpleMidiPlayer : MonoBehaviour
 
     ///<summary>Do Not Use Directly!!!</summary>
     [SerializeField] private MidiObject midi;
-    [SerializeField] bool playOnAwake = true;
+    public bool playOnAwake = true;
 
     private MidiObject midiObject;
 
     [SerializeField]
     private AudioClip noteClip;
+    [Range(-4, 4)]
+    [SerializeField] int transposeOctaves = 0;
     [Tooltip("Transpose the audio Clip in semitones(Assumed to be C4 by default)")]
-    [SerializeField] int transposeClip;
-    [SerializeField] float playbackSpeed = 1f;
-    [SerializeField] float volume = 1;
+    [Range(-11, 11)]
+    [SerializeField] int transposeSemitones = 0;
+    [Range(0.25f, 4f)]
+    public float playbackSpeed = 1f;
+    public bool loop = false;
+    [Range(0.25f, 4f)]
+    public float volume = 1;
+    [Tooltip("How long the note AudioSource remains active for, Shorter times are more efficient")]
     [SerializeField] float noteLife = 1.5f;
-
 
     void Start()
     {
@@ -30,6 +37,15 @@ public class SimpleMidiPlayer : MonoBehaviour
         if(playOnAwake && midi != null) Play();
     }
 
+    public Action OnSongComplete;
+
+    public void SetSong(MidiObject midiSong)
+    {
+        midi = midiSong;
+
+        runningTime = 0;
+        playing = false; // stop playing current song
+    }
 
     private float runningTime;
     private bool playing = false;
@@ -42,19 +58,24 @@ public class SimpleMidiPlayer : MonoBehaviour
         midiObject.OnNoteEventCalled += NotePlayedEvent;
 
         playing = true;
-        runningTime = 0;
+        runningTime = 0; // will force restart if already playing
 
         nextEvents = new int[midiObject.tracks.Length];
         for(int i = 0; i < nextEvents.Length; i++) nextEvents[i] = 0;
 
     }
 
-    private void OnSongComplete()
+    private void SongComplete()
     {
         Debug.Log("midi track complete: " + midiObject.name);
         playing = false;
         midiObject.OnNoteEventCalled -= NotePlayedEvent; // just in case
         Destroy(midiObject); // uninstantiate object;
+
+
+        if(loop) Play();
+        else OnSongComplete?.Invoke(); // looping does not count as song completing
+
     }
 
     void Update()
@@ -67,7 +88,7 @@ public class SimpleMidiPlayer : MonoBehaviour
             //reached the end of the song
             if(IsSongComplete())
             {
-                OnSongComplete();
+                SongComplete();
             }else
             {   
                 //all tracks play simultaniously
@@ -120,7 +141,7 @@ public class SimpleMidiPlayer : MonoBehaviour
         StartCoroutine(DestroySource(source, noteLife));
 
         source.clip = noteClip;
-        source.pitch = TransposeValue(1, transposeClip + noteRel);
+        source.pitch = TransposeValue(1, transposeOctaves * 12 + transposeSemitones + noteRel);
         source.volume = velocity * volume;
         source.PlayDelayed(delay);
     }
